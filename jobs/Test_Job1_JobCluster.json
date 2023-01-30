@@ -21,13 +21,13 @@
         "timeout_seconds": 0,
         "email_notifications": {
           "on_start": [
-            "sgannavarapu@microsoft.com"
+            "himashar@microsoft.com"
           ],
           "on_success": [
-            "sgannavarapu@microsoft.com"
+            "himashar@microsoft.com"
           ],
           "on_failure": [
-            "sgannavarapu@microsoft.com"
+            "himashar@microsoft.com"
           ]
         }
       }
