@@ -23,6 +23,5 @@
     "cluster_source": "UI",
     "init_scripts": [],
     "data_security_mode": "NONE",
-    "runtime_engine": "STANDARD",
-    "cluster_id": "0930-065026-51uaymze"
+    "runtime_engine": "STANDARD"
 }
