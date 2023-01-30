@@ -206,6 +206,13 @@ jobs:
         name: 'jobs'
         path: ${{ github.workspace }}/jobs
 
+    # Download Artifact: Databricks-Pools
+    - name: 'Download Artifact: Databricks-Pools' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'pools'
+        path: ${{ github.workspace }}/pools
+
     # Download Artifact: Deployment Scripts
     - name: 'Download Artifact: Deployment Scripts' 
       uses: actions/download-artifact@v3
