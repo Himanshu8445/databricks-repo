@@ -1,0 +1,321 @@
+name: Databricks-CI-CD
+
+# Manual trigger with parameters
+on:
+# Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+
+  workflow_dispatch:
+    inputs:
+      # This is the path of your notebooks in Git.
+      # For specific folder : mention the folder name or leave it as "notebooks/" for multiple folders
+      GIT_NOTEBOOK_PATH:
+        description: 'Notebooks Relative Path in Git '
+        required: true
+        default: 'notebooks/MyProject'
+
+      # This is where in your Databricks workspace your notebooks will be deployed |
+      # Typically this is under a Folder under the Workspace and not under a specific user's folder
+      # For specific folder : mention the folder name or leave it as "/" for multiple folders deployment
+      NOTEBOOK_DEPLOYMENT_PATH:
+        description: 'Notebooks Deployment Path to Databricks'
+        required: true
+        default: '/MyProject'
+jobs:
+  #############################################################
+  # Builds the code
+  # Currently this is not building and JAR files, but you would do that here
+  # This is packaging up the files from Git to the Artifacts files
+  #############################################################
+  Build:
+    runs-on: ubuntu-latest
+
+    # Checkout code
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Show the environment variables for debugging
+    - name: Display Environment Variable
+      uses: azure/powershell@v1
+      with:
+        inlineScript: |
+          dir env:
+        azPSVersion: '3.1.0'
+
+    # Publish Artifact: Databricks-Clusters
+    - name: 'Publish Artifact: Databricks-Clusters' 
+      uses: actions/upload-artifact@v3
+      with:
+        name: 'clusters'
+        path: '${{ github.workspace }}/clusters'
+
+    # Publish Artifact: Databricks-Notebooks
+    - name: 'Publish Artifact: Databricks-Notebooks' 
+      uses: actions/upload-artifact@v3
+      with:
+        name: 'notebooks'
+        path: '${{ github.workspace }}/notebooks'
+
+    # Publish Artifact: Databricks-Jobs
+    - name: 'Publish Artifact: Databricks-Jobs' 
+      uses: actions/upload-artifact@v3
+      with:
+        name: 'jobs'
+        path: '${{ github.workspace }}/jobs'
+
+    # Publish Artifact: Databricks-Pools
+    - name: 'Publish Artifact: Databricks-Pools' 
+      uses: actions/upload-artifact@v3
+      with:
+        name: 'pools'
+        path: '${{ github.workspace }}/pools'        
+
+    # Publish Artifact: Databricks-Deployment-Scripts
+    - name: 'Publish Artifact: Databricks-Deployment-Scripts' 
+      uses: actions/upload-artifact@v3
+      with:
+        name: 'deployment-scripts'
+        path: '${{ github.workspace }}/deployment-scripts'                                
+
+#############################################################
+# Deploy to Dev
+#############################################################
+  Dev:
+    environment: Dev
+    needs: Build
+    runs-on: ubuntu-latest
+    env:
+      NOTEBOOK_DEPLOYMENT_PATH: '/'
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+
+    steps:
+    # Show the environment variables for debugging
+    - name: Display Environment Variable
+      uses: azure/powershell@v1
+      with:
+        inlineScript: |
+          dir env:
+        azPSVersion: '3.1.0'        
+
+    # Download Artifact: Databricks-Clusters
+    - name: 'Download Artifact: Databricks-Clusters' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'clusters'
+        path: ${{ github.workspace }}/clusters
+
+    # Download Artifact: Databricks-Notebooks
+    - name: 'Download Artifact: Databricks-Notebooks' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'notebooks'
+        path: ${{ github.workspace }}/notebooks
+
+    # Download Artifact: Databricks-Jobs
+    - name: 'Download Artifact: Databricks-Jobs' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'jobs'
+        path: ${{ github.workspace }}/jobs
+
+    # Download Artifact: Databricks-Pools
+    - name: 'Download Artifact: Databricks-Pools' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'pools'
+        path: ${{ github.workspace }}/pools
+
+    # Download Artifact: Deployment Scripts
+    - name: 'Download Artifact: Deployment Scripts' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'deployment-scripts'
+        path: ${{ github.workspace }}/deployment-scripts
+        
+    # Deploy Databricks Clusters
+    - name: Deploy Databricks Clusters
+      run: |
+        cd "$GITHUB_WORKSPACE/clusters"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-clusters.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-clusters.sh ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+    # Deploy Databricks Notebooks
+    - name: Deploy Databricks Notebooks
+      run: |
+        cd "$GITHUB_WORKSPACE/notebooks/"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-notebooks.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-notebooks.sh ${{ env.NOTEBOOK_DEPLOYMENT_PATH }} ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+        
+    # Deploy Databricks Jobs
+    - name: Deploy Databricks Jobs
+      run: |
+        cd "$GITHUB_WORKSPACE/jobs"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-jobs.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-jobs.sh ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+    # Enable the below code for testing
+    # # Deploy Databricks Pools
+    # - name: Deploy Databricks Pools
+    #   run: |
+    #     cd "$GITHUB_WORKSPACE/pools"
+    #     chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-pools.sh
+    #     $GITHUB_WORKSPACE/deployment-scripts/deploy-pools.sh  ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+#############################################################
+# Deploy to QA
+#############################################################
+  QA:
+    needs: Dev
+    runs-on: ubuntu-latest
+    environment: QA
+    env:
+      NOTEBOOK_DEPLOYMENT_PATH: '/'
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      
+    steps:
+    # Show the environment variables for debugging
+    - name: Display Environment Variable
+      uses: azure/powershell@v1
+      with:
+        inlineScript: |
+          dir env:
+        azPSVersion: '3.1.0'        
+
+    # Download Artifact: Databricks-Clusters
+    - name: 'Download Artifact: Databricks-Clusters' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'clusters'
+        path: ${{ github.workspace }}/clusters
+
+    # Download Artifact: Databricks-Notebooks
+    - name: 'Download Artifact: Databricks-Notebooks' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'notebooks'
+        path: ${{ github.workspace }}/notebooks
+
+    # Download Artifact: Databricks-Jobs
+    - name: 'Download Artifact: Databricks-Jobs' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'jobs'
+        path: ${{ github.workspace }}/jobs
+
+    # Download Artifact: Deployment Scripts
+    - name: 'Download Artifact: Deployment Scripts' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'deployment-scripts'
+        path: ${{ github.workspace }}/deployment-scripts
+        
+    # Deploy Databricks Clusters
+    - name: Deploy Databricks Clusters
+      run: |
+        cd "$GITHUB_WORKSPACE/clusters"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-clusters.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-clusters.sh ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+    # Deploy Databricks Notebooks
+    - name: Deploy Databricks Notebooks
+      run: |
+        cd "$GITHUB_WORKSPACE/notebooks/"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-notebooks.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-notebooks.sh ${{ env.NOTEBOOK_DEPLOYMENT_PATH }} ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+        
+    # Deploy Databricks Jobs
+    - name: Deploy Databricks Jobs
+      run: |
+        cd "$GITHUB_WORKSPACE/jobs"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-jobs.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-jobs.sh ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+    # Enable the below code for testing
+    # # Deploy Databricks Pools
+    # - name: Deploy Databricks Pools
+    #   run: |
+    #     cd "$GITHUB_WORKSPACE/pools"
+    #     chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-pools.sh
+    #     $GITHUB_WORKSPACE/deployment-scripts/deploy-pools.sh  ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+# #############################################################
+# # Deploy to Prod
+# #############################################################
+  Prod:
+    needs: QA
+    runs-on: ubuntu-latest
+    environment: Prod
+    env:
+      NOTEBOOK_DEPLOYMENT_PATH: '/'
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+
+    steps:
+    # Show the environment variables for debugging
+    - name: Display Environment Variable
+      uses: azure/powershell@v1
+      with:
+        inlineScript: |
+          dir env:
+        azPSVersion: '3.1.0'        
+
+    # Download Artifact: Databricks-Clusters
+    - name: 'Download Artifact: Databricks-Clusters' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'clusters'
+        path: ${{ github.workspace }}/clusters
+
+    # Download Artifact: Databricks-Notebooks
+    - name: 'Download Artifact: Databricks-Notebooks' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'notebooks'
+        path: ${{ github.workspace }}/notebooks
+
+    # Download Artifact: Databricks-Jobs
+    - name: 'Download Artifact: Databricks-Jobs' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'jobs'
+        path: ${{ github.workspace }}/jobs
+
+    # Download Artifact: Deployment Scripts
+    - name: 'Download Artifact: Deployment Scripts' 
+      uses: actions/download-artifact@v3
+      with:
+        name: 'deployment-scripts'
+        path: ${{ github.workspace }}/deployment-scripts
+        
+    # Deploy Databricks Clusters
+    - name: Deploy Databricks Clusters
+      run: |
+        cd "$GITHUB_WORKSPACE/clusters"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-clusters.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-clusters.sh ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+    # Deploy Databricks Notebooks
+    - name: Deploy Databricks Notebooks
+      run: |
+        cd "$GITHUB_WORKSPACE/notebooks/"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-notebooks.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-notebooks.sh ${{ env.NOTEBOOK_DEPLOYMENT_PATH }} ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+        
+    # Deploy Databricks Jobs
+    - name: Deploy Databricks Jobs
+      run: |
+        cd "$GITHUB_WORKSPACE/jobs"
+        chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-jobs.sh
+        $GITHUB_WORKSPACE/deployment-scripts/deploy-jobs.sh ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
+
+    # Enable the below code in production
+    # Deploy Databricks Pools
+    # - name: Deploy Databricks Pools
+    #   run: |
+    #     cd "$GITHUB_WORKSPACE/pools"
+    #     chmod +x $GITHUB_WORKSPACE/deployment-scripts/deploy-pools.sh
+    #     $GITHUB_WORKSPACE/deployment-scripts/deploy-pools.sh  ${{ env.DATABRICKS_TOKEN }} ${{ env.DATABRICKS_HOST }}
