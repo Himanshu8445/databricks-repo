@@ -1,0 +1,7 @@
+{
+    "instance_pool_name": "test-pool2",
+    "node_type_id": "Standard_D3_v2",
+    "min_idle_instances": 3,
+    "custom_tags": [],
+    "idle_instance_autotermination_minutes": 30
+  }
