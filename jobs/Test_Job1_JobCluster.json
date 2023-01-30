@@ -14,7 +14,7 @@
       {
         "task_key": "Test-CICD-Job",
         "notebook_task": {
-          "notebook_path": "/MyProject1/Test1.py",
+          "notebook_path": "/Ascend/Ascend_Notebook.py",
           "source": "WORKSPACE"
         },
         "job_cluster_key": "Job-cluster-CICD",
